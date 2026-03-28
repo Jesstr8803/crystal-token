@@ -101,20 +101,50 @@
     margin-bottom: 8px;
   }
 
-  .color-picker-wrap {
+  .color-wheel-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .wheel-container {
+    position: relative;
+    width: 220px;
+    height: 220px;
+  }
+
+  .wheel-canvas {
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    cursor: crosshair;
+    border: 2px solid #333;
+  }
+
+  .wheel-cursor {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 0 4px rgba(0,0,0,0.8);
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    transition: left 0.05s, top 0.05s;
+  }
+
+  .color-info {
     display: flex;
     align-items: center;
     gap: 12px;
   }
 
-  input[type="color"] {
-    width: 60px;
-    height: 60px;
+  .color-swatch {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
     border: 2px solid #333;
-    border-radius: 12px;
-    padding: 4px;
-    background: #1a1a2e;
-    cursor: pointer;
   }
 
   .color-hex {
@@ -122,24 +152,6 @@
     font-size: 1.2em;
     color: #ccc;
   }
-
-  .presets {
-    display: flex;
-    gap: 8px;
-    margin-top: 10px;
-    flex-wrap: wrap;
-  }
-
-  .preset {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    border: 2px solid #333;
-    cursor: pointer;
-    transition: border-color 0.2s;
-  }
-
-  .preset:active { border-color: white; }
 
   input[type="text"] {
     width: 100%;
@@ -237,19 +249,17 @@
 
   <div class="field">
     <label>Crystal Color</label>
-    <div class="color-picker-wrap">
-      <input type="color" id="colorPicker" value="#8000ff" onchange="onColorChange()">
-      <span class="color-hex" id="colorHex">#8000FF</span>
+    <div class="color-wheel-wrap">
+      <div class="wheel-container">
+        <canvas class="wheel-canvas" id="wheelCanvas" width="220" height="220"></canvas>
+        <div class="wheel-cursor" id="wheelCursor"></div>
+      </div>
+      <div class="color-info">
+        <div class="color-swatch" id="colorSwatch"></div>
+        <span class="color-hex" id="colorHex">#8000FF</span>
+      </div>
     </div>
-    <div class="presets">
-      <div class="preset" style="background:#8000ff" onclick="setColor('#8000ff')"></div>
-      <div class="preset" style="background:#ff0080" onclick="setColor('#ff0080')"></div>
-      <div class="preset" style="background:#00ffff" onclick="setColor('#00ffff')"></div>
-      <div class="preset" style="background:#ff4400" onclick="setColor('#ff4400')"></div>
-      <div class="preset" style="background:#00ff44" onclick="setColor('#00ff44')"></div>
-      <div class="preset" style="background:#ffff00" onclick="setColor('#ffff00')"></div>
-      <div class="preset" style="background:#ffffff" onclick="setColor('#ffffff')"></div>
-    </div>
+    <input type="hidden" id="colorPicker" value="#8000ff">
   </div>
 
   <div class="field">
@@ -495,6 +505,7 @@ function onColorChange() {
   const hex = document.getElementById('colorPicker').value;
   document.getElementById('colorHex').textContent = hex.toUpperCase();
   document.getElementById('crystalPreview').style.setProperty('--glow-color', hex);
+  document.getElementById('colorSwatch').style.background = hex;
 }
 
 function onBrightnessChange() {
@@ -509,8 +520,85 @@ function showToast(msg) {
   setTimeout(() => toast.classList.remove('show'), 2000);
 }
 
+// ---- Color Wheel ----
+
+function initWheel() {
+  const canvas = document.getElementById('wheelCanvas');
+  const ctx = canvas.getContext('2d');
+  const cx = canvas.width / 2;
+  const cy = canvas.height / 2;
+  const radius = cx - 4;
+
+  // Draw HSV color wheel
+  for (let angle = 0; angle < 360; angle++) {
+    const startAngle = (angle - 1) * Math.PI / 180;
+    const endAngle = (angle + 1) * Math.PI / 180;
+
+    // Gradient from white (center) to full saturation (edge)
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+    const hue = angle;
+    grad.addColorStop(0, 'hsl(' + hue + ', 0%, 100%)');
+    grad.addColorStop(0.5, 'hsl(' + hue + ', 50%, 75%)');
+    grad.addColorStop(1, 'hsl(' + hue + ', 100%, 50%)');
+
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, radius, startAngle, endAngle);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+  }
+
+  // Interaction
+  let dragging = false;
+
+  function pickColor(x, y) {
+    const rect = canvas.getBoundingClientRect();
+    const px = (x - rect.left) * (canvas.width / rect.width);
+    const py = (y - rect.top) * (canvas.height / rect.height);
+
+    const dx = px - cx;
+    const dy = py - cy;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist > radius) return;
+
+    // Get pixel color
+    const pixel = ctx.getImageData(Math.round(px), Math.round(py), 1, 1).data;
+    const hex = '#' + [pixel[0], pixel[1], pixel[2]].map(v => v.toString(16).padStart(2, '0')).join('');
+
+    document.getElementById('colorPicker').value = hex;
+    onColorChange();
+
+    // Move cursor
+    const cursor = document.getElementById('wheelCursor');
+    const dispX = (px / canvas.width) * rect.width;
+    const dispY = (py / canvas.height) * rect.height;
+    cursor.style.left = dispX + 'px';
+    cursor.style.top = dispY + 'px';
+    cursor.style.borderColor = (pixel[0] + pixel[1] + pixel[2]) > 400 ? '#333' : 'white';
+  }
+
+  canvas.addEventListener('mousedown', (e) => { dragging = true; pickColor(e.clientX, e.clientY); });
+  canvas.addEventListener('mousemove', (e) => { if (dragging) pickColor(e.clientX, e.clientY); });
+  document.addEventListener('mouseup', () => { dragging = false; });
+
+  canvas.addEventListener('touchstart', (e) => { e.preventDefault(); dragging = true; pickColor(e.touches[0].clientX, e.touches[0].clientY); });
+  canvas.addEventListener('touchmove', (e) => { e.preventDefault(); if (dragging) pickColor(e.touches[0].clientX, e.touches[0].clientY); });
+  document.addEventListener('touchend', () => { dragging = false; });
+
+  // Set initial cursor position (roughly purple area)
+  const cursor = document.getElementById('wheelCursor');
+  const initAngle = 280 * Math.PI / 180;
+  const initDist = radius * 0.7;
+  const cRect = canvas.getBoundingClientRect();
+  cursor.style.left = ((cx + Math.cos(initAngle) * initDist) / canvas.width * cRect.width) + 'px';
+  cursor.style.top = ((cy + Math.sin(initAngle) * initDist) / canvas.height * cRect.height) + 'px';
+}
+
 // Init
 onColorChange();
+window.addEventListener('load', initWheel);
 </script>
 
 </body>
