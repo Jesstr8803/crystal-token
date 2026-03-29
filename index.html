@@ -268,6 +268,12 @@
   </div>
 
   <div class="field">
+    <label>Group</label>
+    <input type="number" id="groupInput" min="0" max="255" value="0" style="width:80px; padding:12px 16px; background:#1a1a2e; border:2px solid #333; border-radius:10px; color:white; font-size:1em; outline:none;">
+    <span style="font-size:0.8em; color:#666; margin-left:8px;">Same group = same squad</span>
+  </div>
+
+  <div class="field">
     <label>Brightness</label>
     <input type="range" id="brightnessSlider" min="5" max="76" value="76" oninput="onBrightnessChange()">
     <div class="brightness-value" id="brightnessValue">76 / 76</div>
@@ -297,6 +303,7 @@ const COLOR_UUID      = '43525953-5441-4c50-414c-414345210002';
 const NAME_UUID       = '43525953-5441-4c50-414c-414345210003';
 const BRIGHTNESS_UUID = '43525953-5441-4c50-414c-414345210004';
 const DEVICE_ID_UUID  = '43525953-5441-4c50-414c-414345210005';
+const GROUP_ID_UUID   = '43525953-5441-4c50-414c-414345210006';
 
 let device = null;
 let server = null;
@@ -305,6 +312,7 @@ let colorChar = null;
 let nameChar = null;
 let brightnessChar = null;
 let idChar = null;
+let groupChar = null;
 
 let demoMode = false;
 
@@ -313,7 +321,8 @@ let demoState = {
   color: [0x80, 0x00, 0xFF],
   name: 'CRYSTAL',
   brightness: 76,
-  id: 1
+  id: 1,
+  group: 0
 };
 
 // ---- Demo Mode ----
@@ -333,6 +342,7 @@ function enterDemo() {
   document.getElementById('colorPicker').value = hex;
   document.getElementById('nameInput').value = demoState.name;
   document.getElementById('brightnessSlider').value = demoState.brightness;
+  document.getElementById('groupInput').value = demoState.group;
   onColorChange();
   onBrightnessChange();
 }
@@ -378,8 +388,10 @@ async function connectCrystal() {
 
     try {
       idChar = await service.getCharacteristic(DEVICE_ID_UUID);
+      groupChar = await service.getCharacteristic(GROUP_ID_UUID);
     } catch (e) {
-      idChar = null; // Optional
+      idChar = null;
+      groupChar = null;
     }
 
     // Read current values
@@ -443,6 +455,12 @@ async function readCurrentConfig() {
     document.getElementById('brightnessSlider').value = brightVal.getUint8(0);
     onBrightnessChange();
 
+    // Read group
+    if (groupChar) {
+      const groupVal = await groupChar.readValue();
+      document.getElementById('groupInput').value = groupVal.getUint8(0);
+    }
+
   } catch (e) {
     console.log('Could not read config:', e);
   }
@@ -460,12 +478,13 @@ async function saveConfig() {
   const b = parseInt(hex.slice(5, 7), 16);
   const name = document.getElementById('nameInput').value.slice(0, 8);
   const brightness = parseInt(document.getElementById('brightnessSlider').value);
+  const group = parseInt(document.getElementById('groupInput').value) || 0;
 
   if (demoMode) {
-    // Demo mode — just save locally
     demoState.color = [r, g, b];
     demoState.name = name;
     demoState.brightness = brightness;
+    demoState.group = group;
     showToast('Saved! (demo mode)');
     btn.disabled = false;
     return;
@@ -478,6 +497,10 @@ async function saveConfig() {
     await nameChar.writeValue(encoder.encode(name));
 
     await brightnessChar.writeValue(new Uint8Array([brightness]));
+
+    if (groupChar) {
+      await groupChar.writeValue(new Uint8Array([group]));
+    }
 
     showToast('Saved to crystal!');
 
