@@ -283,6 +283,11 @@
     Save to Crystal
   </button>
 
+  <div class="field" id="hwIdField" style="display:none;">
+    <label>Hardware ID</label>
+    <span style="font-family:monospace; font-size:0.9em; color:#a855f7;" id="hwIdDisplay">—</span>
+  </div>
+
   <button class="save-btn" id="dfuBtn" onclick="triggerDfu()" style="background:#1a1a2e; color:#a855f7; border-color:#333; margin-top:8px;">
     Update Firmware (OTA)
   </button>
@@ -381,6 +386,7 @@ const BRIGHTNESS_UUID = '43525953-5441-4c50-414c-414345210004';
 const DEVICE_ID_UUID  = '43525953-5441-4c50-414c-414345210005';
 const GROUP_ID_UUID   = '43525953-5441-4c50-414c-414345210006';
 const DFU_TRIGGER_UUID = '43525953-5441-4c50-414c-414345210007';
+const HW_ID_UUID       = '43525953-5441-4c50-414c-414345210008';
 
 let device = null;
 let dfuChar = null;
@@ -472,6 +478,20 @@ async function connectCrystal() {
       idChar = null;
       groupChar = null;
       dfuChar = null;
+    }
+
+    // Read hardware ID (read-only, for identification)
+    try {
+      const hwIdChar = await service.getCharacteristic(HW_ID_UUID);
+      const hwVal = await hwIdChar.readValue();
+      const hwId = ('0' + hwVal.getUint8(3).toString(16)).slice(-2) +
+                   ('0' + hwVal.getUint8(2).toString(16)).slice(-2) +
+                   ('0' + hwVal.getUint8(1).toString(16)).slice(-2) +
+                   ('0' + hwVal.getUint8(0).toString(16)).slice(-2);
+      document.getElementById('hwIdDisplay').textContent = hwId.toUpperCase();
+      document.getElementById('hwIdField').style.display = 'block';
+    } catch (e) {
+      document.getElementById('hwIdField').style.display = 'none';
     }
 
     // Read current values
