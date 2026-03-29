@@ -275,8 +275,8 @@
 
   <div class="field">
     <label>Brightness</label>
-    <input type="range" id="brightnessSlider" min="5" max="76" value="76" oninput="onBrightnessChange()">
-    <div class="brightness-value" id="brightnessValue">76 / 76</div>
+    <input type="range" id="brightnessSlider" min="5" max="127" value="76" oninput="onBrightnessChange()">
+    <div class="brightness-value" id="brightnessValue">76 / 127</div>
   </div>
 
   <button class="save-btn" id="saveBtn" onclick="saveConfig()">
@@ -287,10 +287,51 @@
 <div class="instructions" id="instructions">
   <strong>How to configure:</strong><br>
   1. Remove battery from crystal, reinsert<br>
-  2. Crystal LED pulses white = config mode<br>
+  2. Crystal LED pulses white = config mode (30 seconds)<br>
   3. Tap "Connect to Crystal" above<br>
-  4. Pick your color and name<br>
-  5. Tap "Save" — crystal remembers your settings
+  4. Pick your color, name, and group<br>
+  5. Tap "Save" — crystal remembers your settings<br>
+  6. After 30 seconds, crystal enters proximity mode
+</div>
+
+<div class="instructions" style="margin-top: 15px;">
+  <strong>How the crystals work:</strong><br><br>
+
+  Each crystal has a "charge" that slowly drains when you're alone.
+  Over about two days by yourself, your crystal fades from a healthy
+  glow to a faint flicker to darkness. Tragic.<br><br>
+
+  But when you're near your friends' crystals, they <em>charge each other up</em>.
+  The more friends nearby, the faster the charge. The closer they are,
+  the brighter the glow.<br><br>
+
+  <strong>Alone:</strong> Faint heartbeat in your color, slowly dying.<br>
+  <strong>1 friend nearby:</strong> Your crystal wakes up and starts pulsing.
+  Their color slowly bleeds into yours.<br>
+  <strong>More friends:</strong> Your crystal cycles through everyone's colors
+  with smooth fades. Brighter, more alive.<br>
+  <strong>Everyone together:</strong> All crystals glow bright, rotating through
+  every color in the group, pulsing in perfect sync.<br><br>
+
+  When a friend leaves, their color fades out of your crystal
+  over about 5 minutes — like a lingering memory.<br><br>
+
+  When a friend arrives after you've been alone for a while,
+  your crystal does a quick bright flash — like it's gasping awake.
+</div>
+
+<div class="instructions" style="margin-top: 15px;">
+  <strong>The Crystal Palace:</strong><br><br>
+
+  So there was this guy on Craigslist who posted an ad looking
+  for friends to get together and jerk each other off to
+  "charge their crystals." Absolute legend. Unhinged energy.<br><br>
+
+  Anyway, that became an inside joke that stuck way too long,
+  and now the friend group is called The Crystal Palace.<br><br>
+
+  These crystals are the physical manifestation of that joke.
+  They literally charge when you're together. You're welcome.
 </div>
 
 <div class="saved-toast" id="toast">Saved to crystal!</div>
@@ -533,7 +574,7 @@ function onColorChange() {
 
 function onBrightnessChange() {
   const val = document.getElementById('brightnessSlider').value;
-  document.getElementById('brightnessValue').textContent = val + ' / 76';
+  document.getElementById('brightnessValue').textContent = val + ' / 127';
 }
 
 function showToast(msg) {
