@@ -228,7 +228,7 @@
 </head>
 <body>
 
-<h1>Crystal Palace</h1>
+<h1 onclick="titleTap()" style="cursor:default;">Crystal Palace</h1>
 <p class="subtitle">Crystal Configuration</p>
 
 <div class="crystal-preview">
@@ -282,6 +282,26 @@
   <button class="save-btn" id="saveBtn" onclick="saveConfig()">
     Save to Crystal
   </button>
+
+  <button class="save-btn" id="dfuBtn" onclick="triggerDfu()" style="background:#1a1a2e; color:#a855f7; border-color:#333; margin-top:8px;">
+    Update Firmware (OTA)
+  </button>
+
+  <div id="testPanel" style="display:none; margin-top:15px; padding:12px; background:#1a1a0a; border:2px solid #333; border-radius:12px;">
+    <label style="display:block; font-size:0.8em; color:#f87171; text-transform:uppercase; letter-spacing:1px; margin-bottom:10px;">Test Modes</label>
+    <button class="save-btn" onclick="triggerTest(0xAA)" style="background:#1a1a2e; color:#ff0; border-color:#333; font-size:0.85em; padding:10px; margin-top:0;">
+      Self-Test (LED sequence)
+    </button>
+    <button class="save-btn" onclick="triggerTest(0xBB)" style="background:#1a1a2e; color:#0ff; border-color:#333; font-size:0.85em; padding:10px;">
+      RSSI Display Mode
+    </button>
+    <button class="save-btn" onclick="triggerTest(0xCC)" style="background:#1a1a2e; color:#0f0; border-color:#333; font-size:0.85em; padding:10px;">
+      Beacon Mode
+    </button>
+    <p style="font-size:0.7em; color:#666; margin-top:8px;">
+      RSSI &amp; Beacon modes run until battery is removed.
+    </p>
+  </div>
 </div>
 
 <div class="instructions" id="instructions">
@@ -360,8 +380,10 @@ const NAME_UUID       = '43525953-5441-4c50-414c-414345210003';
 const BRIGHTNESS_UUID = '43525953-5441-4c50-414c-414345210004';
 const DEVICE_ID_UUID  = '43525953-5441-4c50-414c-414345210005';
 const GROUP_ID_UUID   = '43525953-5441-4c50-414c-414345210006';
+const DFU_TRIGGER_UUID = '43525953-5441-4c50-414c-414345210007';
 
 let device = null;
+let dfuChar = null;
 let server = null;
 let service = null;
 let colorChar = null;
@@ -445,9 +467,11 @@ async function connectCrystal() {
     try {
       idChar = await service.getCharacteristic(DEVICE_ID_UUID);
       groupChar = await service.getCharacteristic(GROUP_ID_UUID);
+      dfuChar = await service.getCharacteristic(DFU_TRIGGER_UUID);
     } catch (e) {
       idChar = null;
       groupChar = null;
+      dfuChar = null;
     }
 
     // Read current values
@@ -673,6 +697,86 @@ function initWheel() {
   const cRect = canvas.getBoundingClientRect();
   cursor.style.left = ((cx + Math.cos(initAngle) * initDist) / canvas.width * cRect.width) + 'px';
   cursor.style.top = ((cy + Math.sin(initAngle) * initDist) / canvas.height * cRect.height) + 'px';
+}
+
+// ---- Title tap Easter egg (5 taps = show test modes) ----
+
+let titleTapCount = 0;
+let titleTapTimer = null;
+
+function titleTap() {
+  titleTapCount++;
+  clearTimeout(titleTapTimer);
+  titleTapTimer = setTimeout(() => { titleTapCount = 0; }, 2000);
+
+  if (titleTapCount >= 5) {
+    titleTapCount = 0;
+    const panel = document.getElementById('testPanel');
+    if (panel.style.display === 'none') {
+      panel.style.display = 'block';
+      showToast('Test modes unlocked');
+    } else {
+      panel.style.display = 'none';
+      showToast('Test modes hidden');
+    }
+  }
+}
+
+// ---- DFU Trigger ----
+
+async function triggerDfu() {
+  if (demoMode) {
+    showToast('DFU not available in demo mode');
+    return;
+  }
+
+  if (!dfuChar) {
+    showToast('Not connected or DFU not available');
+    return;
+  }
+
+  if (!confirm('Update firmware? The crystal will reboot into DFU mode. Use nRF Connect to upload the new firmware file.')) {
+    return;
+  }
+
+  try {
+    await dfuChar.writeValue(new Uint8Array([0x01]));
+    showToast('Crystal rebooting into DFU mode...');
+    // Device will disconnect automatically
+  } catch (err) {
+    showToast('Error: ' + err.message);
+  }
+}
+
+// ---- Test Mode Triggers ----
+
+async function triggerTest(mode) {
+  if (demoMode) {
+    const names = {0xAA: 'Self-Test', 0xBB: 'RSSI Display', 0xCC: 'Beacon'};
+    showToast(names[mode] + ' (demo — would trigger on real device)');
+    return;
+  }
+
+  if (!dfuChar) {
+    showToast('Not connected');
+    return;
+  }
+
+  const names = {0xAA: 'Self-Test', 0xBB: 'RSSI Display', 0xCC: 'Beacon'};
+  const warnings = {
+    0xAA: 'Run self-test? Crystal will cycle through all LED effects (~75 seconds).',
+    0xBB: 'Enter RSSI display mode? Crystal will show signal strength as color. Remove battery to exit.',
+    0xCC: 'Enter beacon mode? Crystal will broadcast continuously for range testing. Remove battery to exit.'
+  };
+
+  if (!confirm(warnings[mode])) return;
+
+  try {
+    await dfuChar.writeValue(new Uint8Array([mode]));
+    showToast(names[mode] + ' mode triggered');
+  } catch (err) {
+    showToast('Error: ' + err.message);
+  }
 }
 
 function toggleInfo() {
