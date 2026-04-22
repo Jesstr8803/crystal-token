@@ -378,15 +378,18 @@
 
 <script>
 // Crystal Palace BLE UUIDs
-// Base UUID: 43525953-5441-4C50-414C-414345210000
-const SERVICE_UUID    = '43525953-5441-4c50-414c-414345210001';
-const COLOR_UUID      = '43525953-5441-4c50-414c-414345210002';
-const NAME_UUID       = '43525953-5441-4c50-414c-414345210003';
-const BRIGHTNESS_UUID = '43525953-5441-4c50-414c-414345210004';
-const DEVICE_ID_UUID  = '43525953-5441-4c50-414c-414345210005';
-const GROUP_ID_UUID   = '43525953-5441-4c50-414c-414345210006';
-const DFU_TRIGGER_UUID = '43525953-5441-4c50-414c-414345210007';
-const HW_ID_UUID       = '43525953-5441-4c50-414c-414345210008';
+// The nRF52 SD places the 16-bit UUID at bytes [12-13] of the 128-bit base,
+// which shows up as positions 4-7 of the displayed UUID (second half of the
+// first group). Base: 43525953-5441-4C50-414C-414345210000 with variable nibble
+// at positions 4-7.
+const SERVICE_UUID    = '43520001-5441-4c50-414c-414345210000';
+const COLOR_UUID      = '43520002-5441-4c50-414c-414345210000';
+const NAME_UUID       = '43520003-5441-4c50-414c-414345210000';
+const BRIGHTNESS_UUID = '43520004-5441-4c50-414c-414345210000';
+const DEVICE_ID_UUID  = '43520005-5441-4c50-414c-414345210000';
+const GROUP_ID_UUID   = '43520006-5441-4c50-414c-414345210000';
+const DFU_TRIGGER_UUID = '43520007-5441-4c50-414c-414345210000';
+const HW_ID_UUID       = '43520008-5441-4c50-414c-414345210000';
 
 let device = null;
 let dfuChar = null;
@@ -544,11 +547,18 @@ async function readCurrentConfig() {
     const hex = '#' + [r, g, b].map(v => v.toString(16).padStart(2, '0')).join('');
     document.getElementById('colorPicker').value = hex;
     onColorChange();
+    if (window.setWheelCursorToHex) window.setWheelCursorToHex(hex);
 
-    // Read name
+    // Read name — use byteLength of the DataView, not the underlying buffer.
+    // Also trim at first null if present.
     const nameVal = await nameChar.readValue();
+    const nameBytes = new Uint8Array(nameVal.buffer, nameVal.byteOffset, nameVal.byteLength);
+    let end = nameBytes.length;
+    for (let i = 0; i < nameBytes.length; i++) {
+      if (nameBytes[i] === 0) { end = i; break; }
+    }
     const decoder = new TextDecoder();
-    document.getElementById('nameInput').value = decoder.decode(nameVal.buffer);
+    document.getElementById('nameInput').value = decoder.decode(nameBytes.slice(0, end));
 
     // Read brightness
     const brightVal = await brightnessChar.readValue();
@@ -593,8 +603,16 @@ async function saveConfig() {
   try {
     await colorChar.writeValue(new Uint8Array([r, g, b]));
 
+    // Name characteristic is max 8 bytes. Pad with a null terminator so
+    // subsequent reads can trim cleanly (firmware stores exactly what we send).
     const encoder = new TextEncoder();
-    await nameChar.writeValue(encoder.encode(name));
+    let nameBytes = encoder.encode(name);
+    if (nameBytes.length > 7) nameBytes = nameBytes.slice(0, 7);
+    // Append a null byte — takes total to ≤ 8 bytes.
+    const padded = new Uint8Array(nameBytes.length + 1);
+    padded.set(nameBytes);
+    padded[nameBytes.length] = 0;
+    await nameChar.writeValue(padded);
 
     await brightnessChar.writeValue(new Uint8Array([brightness]));
 
@@ -710,13 +728,38 @@ function initWheel() {
   canvas.addEventListener('touchmove', (e) => { e.preventDefault(); if (dragging) pickColor(e.touches[0].clientX, e.touches[0].clientY); });
   document.addEventListener('touchend', () => { dragging = false; });
 
-  // Set initial cursor position (roughly purple area)
+  // Expose a way to position the cursor from outside based on a hex color.
+  // Converts RGB -> HSV, maps hue to angle, saturation to radius.
+  window.setWheelCursorToHex = function(hex) {
+    const h = hex.replace('#', '');
+    const r = parseInt(h.slice(0, 2), 16) / 255;
+    const g = parseInt(h.slice(2, 4), 16) / 255;
+    const b = parseInt(h.slice(4, 6), 16) / 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    const d = max - min;
+    let hue = 0;
+    if (d !== 0) {
+      if (max === r) hue = ((g - b) / d) % 6;
+      else if (max === g) hue = (b - r) / d + 2;
+      else hue = (r - g) / d + 4;
+      hue *= 60;
+      if (hue < 0) hue += 360;
+    }
+    const sat = max === 0 ? 0 : d / max;
+    const angleRad = hue * Math.PI / 180;
+    const dist = sat * radius;
+    const px = cx + Math.cos(angleRad) * dist;
+    const py = cy + Math.sin(angleRad) * dist;
+    // Use canvas intrinsic size — cRect is 0 when panel is still hidden.
+    // CSS sets canvas display size to match, so 1:1 mapping is fine.
+    cursor.style.left = px + 'px';
+    cursor.style.top = py + 'px';
+    cursor.style.borderColor = (parseInt(h.slice(0,2), 16) + parseInt(h.slice(2,4), 16) + parseInt(h.slice(4,6), 16)) > 400 ? '#333' : 'white';
+  };
+
+  // Set initial cursor position from current colorPicker value
   const cursor = document.getElementById('wheelCursor');
-  const initAngle = 280 * Math.PI / 180;
-  const initDist = radius * 0.7;
-  const cRect = canvas.getBoundingClientRect();
-  cursor.style.left = ((cx + Math.cos(initAngle) * initDist) / canvas.width * cRect.width) + 'px';
-  cursor.style.top = ((cy + Math.sin(initAngle) * initDist) / canvas.height * cRect.height) + 'px';
+  window.setWheelCursorToHex(document.getElementById('colorPicker').value);
 }
 
 // ---- Title tap Easter egg (5 taps = show test modes) ----
