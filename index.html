@@ -553,10 +553,12 @@ async function readCurrentConfig() {
     // Also trim at first null if present.
     const nameVal = await nameChar.readValue();
     const nameBytes = new Uint8Array(nameVal.buffer, nameVal.byteOffset, nameVal.byteLength);
+    console.log('Name raw bytes:', Array.from(nameBytes).map(b => b.toString(16).padStart(2, '0')).join(' '), 'length:', nameBytes.length);
     let end = nameBytes.length;
     for (let i = 0; i < nameBytes.length; i++) {
       if (nameBytes[i] === 0) { end = i; break; }
     }
+    console.log('Name trim end:', end);
     const decoder = new TextDecoder();
     document.getElementById('nameInput').value = decoder.decode(nameBytes.slice(0, end));
 
@@ -603,15 +605,14 @@ async function saveConfig() {
   try {
     await colorChar.writeValue(new Uint8Array([r, g, b]));
 
-    // Name characteristic is max 8 bytes. Pad with a null terminator so
-    // subsequent reads can trim cleanly (firmware stores exactly what we send).
+    // Name characteristic is max 8 bytes. Pad to FULL 8 with zeros so the
+    // firmware's stored value doesn't retain stale trailing bytes from an
+    // earlier, longer write (the nRF SD keeps bytes past current length).
     const encoder = new TextEncoder();
     let nameBytes = encoder.encode(name);
-    if (nameBytes.length > 7) nameBytes = nameBytes.slice(0, 7);
-    // Append a null byte — takes total to ≤ 8 bytes.
-    const padded = new Uint8Array(nameBytes.length + 1);
+    if (nameBytes.length > 8) nameBytes = nameBytes.slice(0, 8);
+    const padded = new Uint8Array(8);  // zero-initialised by default
     padded.set(nameBytes);
-    padded[nameBytes.length] = 0;
     await nameChar.writeValue(padded);
 
     await brightnessChar.writeValue(new Uint8Array([brightness]));
