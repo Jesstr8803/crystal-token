@@ -374,8 +374,40 @@
 </div>
 
 
+<!-- ============================================================ -->
+<!-- OTA firmware update panel                                      -->
+<!-- ============================================================ -->
+<div class="instructions" id="otaPanel" style="margin-top: 15px;">
+  <strong>Firmware Update (OTA)</strong>
+  <p style="font-size:0.85em; color:#888; margin-top:8px;">
+    Reboot crystal into DFU mode first (either via the "Update Firmware" button above,
+    or by removing battery + holding button — which doesn't exist, so use the button).
+    Then pick the .zip and flash.
+  </p>
+
+  <div style="margin-top:12px;">
+    <input type="file" id="dfuZip" accept=".zip"
+           style="font-size:0.85em; color:#aaa; width:100%;">
+  </div>
+
+  <button class="save-btn" id="dfuStartBtn" onclick="startDfuUpload()"
+          style="background:#1a1a2e; color:#a855f7; border-color:#333; margin-top:10px;"
+          disabled>
+    Connect &amp; Flash
+  </button>
+
+  <div id="dfuProgressWrap" style="display:none; margin-top:12px;">
+    <div style="background:#1a1a2e; border:1px solid #333; border-radius:6px; overflow:hidden; height:10px;">
+      <div id="dfuProgressBar" style="background:linear-gradient(135deg,#a855f7,#6366f1); height:100%; width:0%; transition:width 0.2s;"></div>
+    </div>
+    <div id="dfuStatus" style="font-size:0.75em; color:#888; margin-top:6px; text-align:center;"></div>
+  </div>
+</div>
+
 <div class="saved-toast" id="toast">Saved to crystal!</div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="dfu.js"></script>
 <script>
 // Crystal Palace BLE UUIDs
 // The nRF52 SD places the 16-bit UUID at bytes [12-13] of the 128-bit base,
@@ -799,7 +831,7 @@ async function triggerDfu() {
     return;
   }
 
-  if (!confirm('Update firmware? The crystal will reboot into DFU mode. Use nRF Connect to upload the new firmware file.')) {
+  if (!confirm('Update firmware? The crystal will reboot into DFU mode. Then pick the .zip in the "Firmware Update" panel below and tap "Connect & Flash".')) {
     return;
   }
 
@@ -809,6 +841,57 @@ async function triggerDfu() {
     // Device will disconnect automatically
   } catch (err) {
     showToast('Error: ' + err.message);
+  }
+}
+
+// ---- OTA DFU Upload (Web Bluetooth) ----
+
+let dfuZipContents = null;  // { initPacket, firmware }
+
+document.getElementById('dfuZip').addEventListener('change', async (e) => {
+  const btn = document.getElementById('dfuStartBtn');
+  const file = e.target.files && e.target.files[0];
+  dfuZipContents = null;
+  btn.disabled = true;
+  if (!file) return;
+  try {
+    dfuZipContents = await window.parseDfuZip(file);
+    btn.disabled = false;
+    showToast(`Loaded: init ${dfuZipContents.initPacket.length}B, fw ${dfuZipContents.firmware.length}B`);
+  } catch (err) {
+    showToast('Zip parse error: ' + err.message);
+  }
+});
+
+async function startDfuUpload() {
+  if (!dfuZipContents) {
+    showToast('Pick a .zip file first');
+    return;
+  }
+
+  const wrap = document.getElementById('dfuProgressWrap');
+  const bar = document.getElementById('dfuProgressBar');
+  const status = document.getElementById('dfuStatus');
+  wrap.style.display = 'block';
+  bar.style.width = '0%';
+  status.textContent = 'Starting…';
+
+  const client = new window.DfuClient({
+    onProgress: (frac) => { bar.style.width = (frac * 100).toFixed(1) + '%'; },
+    onStatus: (msg) => { status.textContent = msg; },
+  });
+
+  try {
+    await client.connect();
+    await client.doUpdate(dfuZipContents);
+    status.textContent = 'Done. Crystal should reboot.';
+    showToast('DFU complete!');
+  } catch (err) {
+    console.error(err);
+    status.textContent = 'Error: ' + err.message;
+    showToast('DFU failed: ' + err.message);
+  } finally {
+    client.disconnect();
   }
 }
 
