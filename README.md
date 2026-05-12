@@ -37,7 +37,7 @@ If you're on iPhone/iPad and don't want to install Bluefy, use a desktop or Andr
 
 ## How to configure a crystal
 
-1. **Enter config mode:** Pop the crystal's battery out and reinsert it (or for the dev jigs, unplug/replug USB). The crystal enters Phase 1 for 30 seconds — it advertises as `CP-XXXX` (where XXXX is the bottom 16 bits of its hardware ID).
+1. **Enter config mode:** Pop the crystal's battery out and reinsert it (or for the dev jigs, unplug/replug USB). The crystal enters Phase 1 for 15 seconds — it advertises as `CP-XXXX` (where XXXX is the bottom 16 bits of its hardware ID). Connect quickly; if you miss the window, just pop the battery again.
 2. **Open the web app** in Chrome (or another Chromium browser).
 3. **Click "Connect"** — a system dialog shows nearby crystals. Pick yours.
 4. **Edit settings.** Color picker updates the crystal live as you drag (~12 Hz, throttled to avoid flooding GATT). Other fields stage locally until you save.
