@@ -9,10 +9,11 @@ Single-page web app for configuring Crystal Palace crystals over BLE. No build, 
 Connects to a crystal during its Phase-1 BLE config window and lets you set:
 
 - Base color (picker + hex input, with live preview as you drag)
-- Device name (up to 8 chars)
+- Device name (up to 8 chars — also becomes the advertising suffix `CP-<name>`)
 - Brightness cap (5–100)
-- Device ID (1–255)
 - Group ID (1–255 — crystals only mesh with the same group)
+
+Each crystal's unique identity is its factory-burned hardware ID (32 bits), so no user-set device ID is needed.
 
 Also handles:
 

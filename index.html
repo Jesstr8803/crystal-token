@@ -274,12 +274,6 @@
   </div>
 
   <div class="field">
-    <label>Device ID</label>
-    <input type="number" id="deviceIdInput" min="1" max="255" value="1" style="width:80px; padding:12px 16px; background:#1a1a2e; border:2px solid #333; border-radius:10px; color:white; font-size:1em; outline:none;">
-    <span style="font-size:0.8em; color:#666; margin-left:8px;">Must be unique per crystal (1-255)</span>
-  </div>
-
-  <div class="field">
     <label>Brightness</label>
     <input type="range" id="brightnessSlider" min="5" max="100" value="50" oninput="onBrightnessChange()">
     <div class="brightness-value" id="brightnessValue">50 / 100</div>
@@ -432,7 +426,7 @@ const SERVICE_UUID    = '43520001-5441-4c50-414c-414345210000';
 const COLOR_UUID      = '43520002-5441-4c50-414c-414345210000';
 const NAME_UUID       = '43520003-5441-4c50-414c-414345210000';
 const BRIGHTNESS_UUID = '43520004-5441-4c50-414c-414345210000';
-const DEVICE_ID_UUID  = '43520005-5441-4c50-414c-414345210000';
+// DEVICE_ID_UUID (0x0005) removed v47 — peer identity is the factory hw_id.
 const GROUP_ID_UUID   = '43520006-5441-4c50-414c-414345210000';
 const DFU_TRIGGER_UUID = '43520007-5441-4c50-414c-414345210000';
 const HW_ID_UUID       = '43520008-5441-4c50-414c-414345210000';
@@ -444,7 +438,6 @@ let service = null;
 let colorChar = null;
 let nameChar = null;
 let brightnessChar = null;
-let idChar = null;
 let groupChar = null;
 
 let demoMode = false;
@@ -476,7 +469,6 @@ function enterDemo() {
   document.getElementById('nameInput').value = demoState.name;
   document.getElementById('brightnessSlider').value = demoState.brightness;
   document.getElementById('groupInput').value = demoState.group;
-  document.getElementById('deviceIdInput').value = demoState.id;
   onColorChange();
   onBrightnessChange();
 }
@@ -521,11 +513,9 @@ async function connectCrystal() {
     brightnessChar = await service.getCharacteristic(BRIGHTNESS_UUID);
 
     try {
-      idChar = await service.getCharacteristic(DEVICE_ID_UUID);
       groupChar = await service.getCharacteristic(GROUP_ID_UUID);
       dfuChar = await service.getCharacteristic(DFU_TRIGGER_UUID);
     } catch (e) {
-      idChar = null;
       groupChar = null;
       dfuChar = null;
     }
@@ -583,7 +573,6 @@ function onDisconnect() {
   colorChar = null;
   nameChar = null;
   brightnessChar = null;
-  idChar = null;
   groupChar = null;
 }
 
@@ -625,12 +614,6 @@ async function readCurrentConfig() {
       document.getElementById('groupInput').value = groupVal.getUint8(0);
     }
 
-    // Read device ID
-    if (idChar) {
-      const idVal = await idChar.readValue();
-      document.getElementById('deviceIdInput').value = idVal.getUint8(0);
-    }
-
   } catch (e) {
     console.log('Could not read config:', e);
   }
@@ -649,7 +632,6 @@ async function saveConfig() {
   const name = document.getElementById('nameInput').value.slice(0, 8);
   const brightness = parseInt(document.getElementById('brightnessSlider').value);
   const group = parseInt(document.getElementById('groupInput').value) || 0;
-  const deviceId = parseInt(document.getElementById('deviceIdInput').value) || 1;
 
   if (demoMode) {
     demoState.color = [r, g, b];
@@ -678,10 +660,6 @@ async function saveConfig() {
 
     if (groupChar) {
       await groupChar.writeValue(new Uint8Array([group]));
-    }
-
-    if (idChar) {
-      await idChar.writeValue(new Uint8Array([deviceId]));
     }
 
     showToast('Saved to crystal!');
