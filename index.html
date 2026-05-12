@@ -317,12 +317,12 @@
 
 <div class="instructions" id="instructions">
   <strong>How to configure:</strong><br>
-  1. Remove battery from crystal, reinsert<br>
-  2. Crystal LED pulses white = config mode (30 seconds)<br>
-  3. Tap "Connect to Crystal" above<br>
-  4. Pick your color, name, and group<br>
-  5. Tap "Save" — crystal remembers your settings<br>
-  6. After 30 seconds, crystal enters proximity mode
+  1. Remove the battery, then reinsert it<br>
+  2. The crystal pulses for 30 seconds in config mode (advertises as <code>CP-XXXX</code>)<br>
+  3. Tap "Connect to Crystal" above and pick yours from the list<br>
+  4. Pick your color, name, brightness, and group<br>
+  5. Tap "Save to Crystal" — your settings persist across battery swaps<br>
+  6. After the 30 s window the crystal switches into the mesh and starts looking for friends
 </div>
 
 <div class="instructions" style="margin-top: 15px; cursor: pointer;" onclick="toggleInfo()">
@@ -330,51 +330,58 @@
   <span id="infoArrow" style="float:right; transition: transform 0.3s;">&#9660;</span>
   <div id="infoContent" style="display:none; margin-top: 12px; cursor: default;" onclick="event.stopPropagation()">
 
-    <strong style="color:#a855f7;">The Charge</strong><br>
-    Each crystal has an energy that slowly fades when you're alone.
-    It drains fast at first, then slower and slower — but
-    <em>it never fully dies</em>. Even after days alone, your crystal
-    will still produce a faint flicker every 30 seconds or so.
-    Barely alive. Waiting.<br><br>
+    <strong style="color:#a855f7;">The Heartbeat</strong><br>
+    Every crystal pulses in <em>its own</em> color on a slow ~8 second breath.
+    Whether you're alone or in a group, the color stays yours — you don't
+    blend into the group's color. What you share is the <em>rhythm</em>.<br><br>
 
-    <strong style="color:#4ade80;">Charging Up</strong><br>
-    When you're near your friends' crystals, they charge each other.
-    The more friends nearby, the faster the charge. The closer they
-    are, the brighter the glow. A few minutes together and your
-    crystal is back to full strength.<br><br>
+    <strong style="color:#4ade80;">The Charge</strong><br>
+    Time spent near other crystals builds up a "charge" inside yours.
+    Charge fuels brightness — empty charge means a dim or invisible
+    crystal, full charge means a strong glow. It takes a few hours of
+    being together to fill all the way up, and the charge fades slowly
+    over time when you're alone. Left long enough by itself, a crystal
+    goes dark.<br><br>
 
-    <strong style="color:#6366f1;">The Effects</strong><br><br>
+    <strong style="color:#6366f1;">Sync (Kuramoto coupling)</strong><br>
+    When two or more crystals can hear each other, they pull their
+    heartbeats toward each other and lock into a shared rhythm — every
+    crystal in the group breathing at the same time. The bigger the
+    group, the stronger the pull. Locking from a cold meet takes about
+    a minute or two.<br><br>
 
-    <strong>Alone (charged):</strong> Gentle heartbeat pulse in your color.
-    Slowly dims and slows over hours as the charge fades.<br><br>
+    <strong style="color:#fb923c;">Peak Flash (the reward)</strong><br>
+    Once you and your friends have been together long enough to charge
+    all the way up, the top of every pulse gets a brighter pop. Since
+    you're all in sync by then, those flashes happen at exactly the
+    same instant — the whole group glowing brightest together for an
+    instant, every breath.<br><br>
 
-    <strong>Alone (low charge):</strong> Faint, infrequent flicker. The color
-    washes out and becomes muted. Your crystal is lonely.<br><br>
+    <strong style="color:#ec4899;">Greetings</strong><br>
+    When a new crystal joins your nearby list, your crystal blends
+    their color into <em>one</em> of its pulses — a hello. Then it goes
+    back to your own color. The same crystal won't trigger another
+    greeting for ~5 minutes, so the effect stays special.<br><br>
 
-    <strong>1 friend nearby:</strong> Your crystal wakes up. Their color
-    starts slowly bleeding into your pulse — a smooth fade
-    between your color and theirs.<br><br>
+    <strong style="color:#f87171;">Drift Apart, Drift Back</strong><br>
+    If you leave the group for more than a couple of minutes, your
+    crystal's rhythm starts drifting at its own slightly-unique pace
+    (every chip has a different natural rhythm baked in). Stay away
+    for 15-30 minutes and you've drifted fully out of sync with the
+    group. When you come back, you watch them slowly pull each other
+    in again — the convergence transient is the whole point.
+    Brief disconnects of less than ~2 minutes don't drift; the rhythm
+    holds while you grab a coffee.<br><br>
 
-    <strong>More friends:</strong> Your crystal cycles through everyone's
-    colors with smooth transitions. The closer a friend is, the
-    stronger their color appears. Brighter, more alive.<br><br>
-
-    <strong>Everyone together:</strong> All crystals glow bright, rotating
-    through every color in the group, pulsing in perfect sync.
-    It takes about 30 seconds for crystals to sync up — a new
-    arrival slowly drifts into rhythm with the group.<br><br>
-
-    <strong style="color:#f87171;">Goodbyes</strong><br>
-    When a friend leaves, their color fades out of your crystal
-    over about 5 minutes — like a lingering memory.<br><br>
-
-    When a friend arrives after you've been alone for a while,
-    your crystal does a quick bright flash — gasping awake.<br><br>
+    <strong style="color:#94a3b8;">Dying</strong><br>
+    As charge drops very low (after days alone), the heartbeat skips
+    cycles and the crystal fades to dark. Bringing it back near
+    friends starts the charge climbing again from wherever it left off.<br><br>
 
     <strong style="color:#888;">Groups</strong><br>
-    Crystals with the same group number interact with each other.
-    Different groups are invisible to each other — like they're on
-    different frequencies.
+    Crystals only interact with others on the same Group ID. Different
+    groups are invisible to each other — they share the radio but ignore
+    each other's packets.
 
   </div>
 </div>
@@ -386,9 +393,10 @@
 <div class="instructions" id="otaPanel" style="margin-top: 15px;">
   <strong>Firmware Update (OTA)</strong>
   <p style="font-size:0.85em; color:#888; margin-top:8px;">
-    Reboot crystal into DFU mode first (either via the "Update Firmware" button above,
-    or by removing battery + holding button — which doesn't exist, so use the button).
-    Then pick the .zip and flash.
+    1. Make sure the crystal is in config mode (pop the battery + reinsert if needed).<br>
+    2. Click "Update Firmware (OTA)" above to send the crystal into the bootloader.<br>
+    3. Pick the signed <code>crystal_palace_dfu_v&lt;N&gt;.zip</code> below and click "Connect &amp; Flash".<br>
+    Upload takes ~30-45 seconds; the crystal reboots into the new firmware automatically.
   </p>
 
   <div style="margin-top:12px;">
