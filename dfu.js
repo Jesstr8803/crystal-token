@@ -161,6 +161,23 @@ class DfuClient {
       console.warn('DFU: unexpected notification', buf);
       return;
     }
+    const reqOp = buf[1];
+    const result = buf[2];
+
+    // PRN auto-notifications come back tagged as CRC_GET responses; if we have
+    // a PRN waiter pending and no other request is in flight, route the
+    // notification there. Otherwise fall through to the regular response path.
+    if (this._pendingPrn && (!this._pendingResponse || this._pendingResponse.expectedOp !== reqOp)) {
+      const waiter = this._pendingPrn;
+      this._pendingPrn = null;
+      if (result !== RESULT_SUCCESS) {
+        waiter.reject(new Error(`PRN failure: 0x${result.toString(16)}`));
+      } else {
+        waiter.resolve(buf.slice(3));
+      }
+      return;
+    }
+
     if (!this._pendingResponse) {
       console.warn('DFU: response with no pending waiter', buf);
       return;
@@ -168,8 +185,6 @@ class DfuClient {
     const waiter = this._pendingResponse;
     this._pendingResponse = null;
 
-    const reqOp = buf[1];
-    const result = buf[2];
     if (result !== RESULT_SUCCESS) {
       waiter.reject(new Error(
         `DFU op 0x${reqOp.toString(16)} failed: result 0x${result.toString(16)}`
@@ -183,6 +198,19 @@ class DfuClient {
       return;
     }
     waiter.resolve(buf.slice(3));
+  }
+
+  // Wait for the next PRN notification from the device.
+  _waitPrn(timeoutMs = 5000) {
+    return new Promise((resolve, reject) => {
+      this._pendingPrn = { resolve, reject };
+      setTimeout(() => {
+        if (this._pendingPrn) {
+          this._pendingPrn = null;
+          reject(new Error('PRN timeout'));
+        }
+      }, timeoutMs);
+    });
   }
 
   _sendControl(bytes, expectedOp, timeoutMs = 10000) {
@@ -258,11 +286,17 @@ class DfuClient {
     await this._sendControl(payload, OP_SET_PRN);
   }
 
-  async _streamBytes(bytes) {
-    // Packet char is write-without-response. Split into MTU-friendly chunks.
+  async _streamBytes(bytes /*prnInterval ignored*/) {
+    // Packet char is write-without-response. Web Bluetooth's writeValueWithoutResponse
+    // doesn't expose its queue depth and Chrome on Windows drops packets when
+    // the OS BLE buffer overflows. PRN-based flow control was attempted but
+    // races with our notification handler. The reliable path is a per-write
+    // delay long enough that the OS scheduler never gets behind. 25 ms gives
+    // ~4 minutes per 20 KB upload but never drops.
     for (let off = 0; off < bytes.length; off += PACKET_CHUNK_SIZE) {
       const chunk = bytes.subarray(off, Math.min(off + PACKET_CHUNK_SIZE, bytes.length));
       await this.packetChar.writeValueWithoutResponse(chunk);
+      await new Promise(resolve => setTimeout(resolve, 25));
     }
   }
 
@@ -303,6 +337,11 @@ class DfuClient {
 
     const sel = await this._selectObject(OBJ_TYPE_DATA);
     const chunkSize = sel.maxSize;
+
+    // PRN disabled — _streamBytes uses a per-write delay instead. Leaving PRN
+    // on floods the console with unwanted notifications since we don't await
+    // them, and the throttle alone is enough to keep the OS BLE buffer happy.
+    await this._setPRN(0);
 
     let runningCrc = 0;
     let offset = 0;

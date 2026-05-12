@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Crystal Palace — Gift-Bag QR Cards</title>
+<style>
+  /* Letter page, 10 cards per page (2 columns × 5 rows).
+     Each card 3.5" × 2" — standard business-card size.
+     Print at 100% scale, "no margins" or "fit to page" off. */
+  :root {
+    --card-w: 3.5in;
+    --card-h: 2in;
+  }
+  @page {
+    size: letter;
+    margin: 0.5in 0.75in;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #fff;
+    color: #111;
+    font-family: -apple-system, "Segoe UI", system-ui, Helvetica, Arial, sans-serif;
+  }
+  .sheet {
+    display: grid;
+    grid-template-columns: repeat(2, var(--card-w));
+    grid-template-rows: repeat(5, var(--card-h));
+    gap: 0;
+    width: calc(var(--card-w) * 2);
+    margin: 0 auto;
+  }
+  .card {
+    width: var(--card-w);
+    height: var(--card-h);
+    box-sizing: border-box;
+    padding: 0.18in;
+    display: grid;
+    grid-template-columns: 1.5in 1fr;
+    gap: 0.12in;
+    align-items: center;
+    /* Light cut-line guides — print as a faint border so user can trim */
+    border: 0.5pt dashed #999;
+    page-break-inside: avoid;
+  }
+  .qr {
+    width: 1.5in;
+    height: 1.5in;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .qr canvas, .qr img {
+    width: 100%;
+    height: 100%;
+  }
+  .text {
+    font-size: 9.5pt;
+    line-height: 1.25;
+  }
+  .text h1 {
+    font-size: 12pt;
+    font-weight: 700;
+    margin: 0 0 0.04in 0;
+    letter-spacing: 0.02em;
+  }
+  .text p {
+    margin: 0.02in 0;
+  }
+  .text .url {
+    font-family: "Consolas", "Menlo", "Courier New", monospace;
+    font-size: 7.5pt;
+    color: #555;
+    word-break: break-all;
+    margin-top: 0.05in;
+  }
+  .text .tip {
+    color: #666;
+    font-size: 8.5pt;
+    margin-top: 0.04in;
+  }
+  @media screen {
+    body { padding: 24px 0; }
+    .controls {
+      max-width: var(--card-w) * 2;
+      margin: 0 auto 18px;
+      font-family: system-ui;
+      font-size: 14px;
+      text-align: center;
+      color: #444;
+    }
+    .controls button {
+      padding: 8px 18px;
+      font-size: 14px;
+      cursor: pointer;
+      border: 1px solid #888;
+      background: #f4f4f4;
+      border-radius: 6px;
+    }
+    .card { border-color: #ccc; }
+  }
+  @media print {
+    .controls { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <p>Crystal Palace gift-bag cards — 10 per letter page. Print at 100% scale, single-sided.</p>
+  <button onclick="window.print()">Print this page</button>
+</div>
+
+<div class="sheet" id="sheet"></div>
+
+<!-- qrcode.js: tiny QR generator, ~20kb, draws into a div as <img> or <canvas>.
+     Pinned version + integrity check so a CDN swap can't poison the page. -->
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script>
+  const URL_TARGET = "https://jesstr8803.github.io/crystal-token/";
+
+  const cardHTML = `
+    <div class="card">
+      <div class="qr"></div>
+      <div class="text">
+        <h1>Crystal Palace</h1>
+        <p>Scan to set your crystal's color.</p>
+        <p class="tip">Use <b>Chrome</b> on Android or PC.<br>iPhone & Safari won't work.</p>
+        <div class="url">jesstr8803.github.io/<wbr>crystal-token</div>
+      </div>
+    </div>`;
+
+  const sheet = document.getElementById('sheet');
+  for (let i = 0; i < 10; i++) {
+    sheet.insertAdjacentHTML('beforeend', cardHTML);
+  }
+
+  // Render a QR into each card's .qr div
+  document.querySelectorAll('.qr').forEach(el => {
+    new QRCode(el, {
+      text: URL_TARGET,
+      width: 144,           // 1.5" at 96dpi screen; print scales by CSS width:100%
+      height: 144,
+      correctLevel: QRCode.CorrectLevel.M  // medium error correction — survives a bit of damage
+    });
+  });
+</script>
+
+</body>
+</html>
